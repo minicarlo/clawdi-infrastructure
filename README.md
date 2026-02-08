@@ -1,17 +1,19 @@
 # Clawdi Infrastructure
 
-> Documentation of an OpenClaw-powered household AI infrastructure with autonomous subagent teams.
+> Documentation of an OpenClaw-powered household AI infrastructure with autonomous PERMANENT subagent teams.
 
 ## 🏠 Overview
 
-This repository documents a production OpenClaw deployment managing a multi-agent system with specialized AI assistants. The setup demonstrates practical patterns for running persistent AI agents with division of labor, cost optimization, and security scanning.
+This repository documents a production OpenClaw deployment managing a multi-agent system with **PERMANENT** specialized AI assistants that survive gateway restarts. The setup demonstrates practical patterns for running persistent AI agents with division of labor, cost optimization, security scanning, and mandatory completion goals.
 
 **Key Components:**
-- 🤖 **4 Persistent Subagents** - Specialized autonomous agents
-- 💰 **Butler** - API budget manager
-- 🧹 **Janitor** - Repository cleanup automation
-- 🔒 **Gatekeeper** - Security scanner for leaked secrets
-- 📊 **Moderator** - Agent coordinator and reporter
+- 🤖 **4 PERMANENT Subagents** - Survive restarts, never auto-cleanup
+- 🎩 **Butler** - API budget manager & model rotation coordinator
+- 🧹 **Janitor** - System cleanup & maintenance
+- 🔒 **Gatekeeper** - Security scanner & secret prevention
+- 📊 **Moderator** - Agent coordinator & daily reporter
+
+**Critical Feature:** All tasks use 🎯 **MANDATORY COMPLETION GOALS** - agents don't stop until goals are 100% verified achieved.
 
 ## 📋 Table of Contents
 
@@ -47,14 +49,47 @@ This repository documents a production OpenClaw deployment managing a multi-agen
 
 ## 🤖 Subagent Team
 
-### Architecture
+### Architecture (PERMANENT Agents)
+
+All agents use `cleanup="keep"` to survive gateway restarts. Models are **dynamically assigned** by Butler based on availability.
 
 ```
 Main Agent (Clawdi)
-├── butler-agent     (nvidia/kimi-k2.5)
-├── janitor-agent    (groq/llama-3.3-70b)
-├── gatekeeper-agent (groq/llama-3.3-70b)
-└── moderator-agent  (nvidia/kimi-k2.5)
+├── butler-agent-permanent     (DYNAMIC - NVIDIA/GROQ/Moonshot)
+├── janitor-agent-permanent    (DYNAMIC - assigned by Butler)
+├── gatekeeper-agent-permanent (DYNAMIC - assigned by Butler)
+└── moderator-agent-permanent  (DYNAMIC - assigned by Butler)
+```
+
+### Telegram Channel Mapping
+
+| Topic | Channel | Agent |
+|-------|---------|-------|
+| 3 | #butler | butler-agent-permanent |
+| 4 | #janitor | janitor-agent-permanent |
+| 5 | #gatekeeper | gatekeeper-agent-permanent |
+| 6 | #moderator | moderator-agent-permanent |
+
+### 🎯 PRD Protocol - MANDATORY Completion Goals
+
+Every task MUST include a verifiable completion goal:
+
+```
+🎯 COMPLETION GOAL: [Single, measurable, verifiable condition]
+The task is ONLY considered finished when this exact condition is met.
+```
+
+**Enforcement Rules:**
+1. No partial completion: "I've started but..." = NOT DONE
+2. No assumptions: "I think it worked..." = NOT DONE  
+3. Must verify: Run actual test/proof
+4. Keep working: Loop until goal achieved
+5. Report accurately: Only "COMPLETE ✅" at 100%
+
+**Example:**
+```
+🎯 COMPLETION GOAL: All 4 subagents respond to test ping within 10 seconds
+VERIFICATION: Send ping to each agent, verify all respond, check logs
 ```
 
 ### 1. Butler Agent 💰
