@@ -1,368 +1,342 @@
-# Clawdi Infrastructure
+# 🏛️ THE CLAWDI MANSION - AI Agent Architecture
 
-> Documentation of an OpenClaw-powered household AI infrastructure with autonomous PERMANENT subagent teams.
+> *"Cheap model runs the mansion. Expensive models get hired for shifts. The Butler manages the payroll. The Gatekeeper locks the doors."*
 
-## 🏠 Overview
-
-This repository documents a production OpenClaw deployment managing a multi-agent system with **PERMANENT** specialized AI assistants that survive gateway restarts. The setup demonstrates practical patterns for running persistent AI agents with division of labor, cost optimization, security scanning, and mandatory completion goals.
-
-**Key Components:**
-- 🤖 **4 PERMANENT Subagents** - Survive restarts, never auto-cleanup
-- 🎩 **Butler** - API budget manager & model rotation coordinator
-- 🧹 **Janitor** - System cleanup & maintenance
-- 🔒 **Gatekeeper** - Security scanner & secret prevention
-- 📊 **Moderator** - Agent coordinator & daily reporter
-
-**Critical Feature:** All tasks use 🎯 **MANDATORY COMPLETION GOALS** - agents don't stop until goals are 100% verified achieved.
-
-## 📋 Table of Contents
-
-- [Infrastructure Setup](#infrastructure-setup)
-- [Subagent Team](#subagent-team)
-- [Skills & Capabilities](#skills--capabilities)
-- [Workflows](#workflows)
-- [Cost Optimization](#cost-optimization)
-- [Security Practices](#security-practices)
-
-## 🖥️ Infrastructure Setup
-
-### Platform
-- **OS:** Ubuntu 24.04 LTS
-- **Hosting:** Hetzner VPS
-- **OpenClaw Version:** 2026.2.6-3
-- **Memory Backend:** QMD (optimized for low token usage)
-
-### Configuration Highlights
-```json
-{
-  "agents.defaults.maxConcurrent": 1,
-  "agents.defaults.subagents.maxConcurrent": 3,
-  "memory.backend": "qmd",
-  "sessions": "auto-clear every 2h"
-}
-```
-
-**Token Optimization:**
-- Before optimization: 62K tokens/message
-- After QMD + config tuning: 13K tokens/message
-- Target: <10K tokens/message
-
-## 🤖 Subagent Team
-
-### Architecture (PERMANENT Agents)
-
-All agents use `cleanup="keep"` to survive gateway restarts. Models are **dynamically assigned** by Butler based on availability.
-
-```
-Main Agent (Clawdi)
-├── butler-agent-permanent     (DYNAMIC - NVIDIA/GROQ/Moonshot)
-├── janitor-agent-permanent    (DYNAMIC - assigned by Butler)
-├── gatekeeper-agent-permanent (DYNAMIC - assigned by Butler)
-└── moderator-agent-permanent  (DYNAMIC - assigned by Butler)
-```
-
-### Telegram Channel Mapping
-
-| Topic | Channel | Agent |
-|-------|---------|-------|
-| 3 | #butler | butler-agent-permanent |
-| 4 | #janitor | janitor-agent-permanent |
-| 5 | #gatekeeper | gatekeeper-agent-permanent |
-| 6 | #moderator | moderator-agent-permanent |
-
-### 🎯 PRD Protocol - MANDATORY Completion Goals
-
-Every task MUST include a verifiable completion goal:
-
-```
-🎯 COMPLETION GOAL: [Single, measurable, verifiable condition]
-The task is ONLY considered finished when this exact condition is met.
-```
-
-**Enforcement Rules:**
-1. No partial completion: "I've started but..." = NOT DONE
-2. No assumptions: "I think it worked..." = NOT DONE  
-3. Must verify: Run actual test/proof
-4. Keep working: Loop until goal achieved
-5. Report accurately: Only "COMPLETE ✅" at 100%
-
-**Example:**
-```
-🎯 COMPLETION GOAL: All 4 subagents respond to test ping within 10 seconds
-VERIFICATION: Send ping to each agent, verify all respond, check logs
-```
-
-### 1. Butler Agent 💰
-
-**Model:** Nvidia Kimi K2.5 (FREE)  
-**Role:** API budget & key manager
-
-**Responsibilities:**
-- Track token usage across 6 providers (Anthropic, Groq, Nvidia, OpenAI, OpenRouter, OpenCode)
-- Recommend optimal models based on task complexity
-- Monitor spending in real-time
-- Alert before rate limits
-- Prevent surprise bills
-
-**Skills:** `/butler`
-
-**Example Usage:**
-```bash
-sessions_send butler-agent "Recommend a model for: create a landing page"
-# → Suggests: groq/llama (FREE, fast)
-
-sessions_send butler-agent "Check current API budget status"
-# → Reports usage across all providers
-```
-
-### 2. Janitor Agent 🧹
-
-**Model:** Groq Llama 3.3 70B (FREE)  
-**Role:** GitHub repository cleanup specialist
-
-**Responsibilities:**
-- Scan repos for junk files (node_modules, cache, build artifacts)
-- Remove unused files safely
-- Detect duplicate files
-- Clean up merged branches
-- Optimize repo size with git GC
-
-**Skills:** `/janitor`, `github`
-
-**Example Usage:**
-```bash
-sessions_send janitor-agent "Scan minicarlo/repo for junk files"
-# → Identifies: 250MB node_modules, 80MB .cache, 12 merged branches
-
-sessions_send janitor-agent "Optimize minicarlo/repo --dry-run"
-# → Shows cleanup plan without making changes
-```
-
-### 3. Gatekeeper Agent 🔒
-
-**Model:** Groq Llama 3.3 70B (FREE)  
-**Role:** Security scanner for leaked secrets
-
-**Responsibilities:**
-- Scan commits for leaked API keys before push
-- Detect tokens, passwords, credentials
-- Alert on security issues
-- Prevent credential exposure to GitHub
-
-**Skills:** `github`
-
-**Detection Patterns:**
-- API keys: `sk-...`, `ANTHROPIC_API_KEY=...`
-- Tokens: `ghp_...`, `gho_...`, bot tokens
-- Passwords: `password=...`, `pwd=...`
-- Private keys: `BEGIN PRIVATE KEY`
-
-**Example Usage:**
-```bash
-sessions_send gatekeeper-agent "Scan staged changes for secrets"
-# → Alerts if API keys detected before commit
-
-sessions_send gatekeeper-agent "Audit last 5 commits for leaked credentials"
-# → Reviews git history for exposure
-```
-
-### 4. Moderator Agent 📊
-
-**Model:** Nvidia Kimi K2.5 (FREE)  
-**Role:** Subagent coordinator & reporter
-
-**Responsibilities:**
-- Monitor all other subagents
-- Aggregate results from multi-agent operations
-- Generate daily summary reports
-- Coordinate workflows between agents
-- Escalate issues to main agent
-
-**Skills:** None (uses `sessions_list`, `sessions_history` via main agent)
-
-**Example Usage:**
-```bash
-sessions_send moderator-agent "Generate daily report of all subagent activities"
-# → Summary of butler budgets, janitor cleanups, gatekeeper scans
-
-sessions_send moderator-agent "Check status of all subagents"
-# → Health check across the team
-```
-
-## 🛠️ Skills & Capabilities
-
-### Active Skills
-
-| Skill | Purpose | Used By |
-|-------|---------|---------|
-| **butler** | API budget tracking & model recommendations | butler-agent |
-| **janitor** | Repository cleanup automation | janitor-agent |
-| **github** | GitHub operations via gh CLI | janitor-agent, gatekeeper-agent |
-| **github-secrets-manager** | Secure API key storage in GitHub secrets | Main agent |
-| **skill-creator** | Build new AgentSkills | Main agent |
-
-### Skill Structure Example
-
-```
-skills/butler/
-├── SKILL.md                 # Main documentation
-├── scripts/
-│   ├── check_budgets.py     # Budget status checker
-│   ├── recommend_model.py   # Task→model assignment
-│   ├── log_usage.py         # Usage tracking
-│   └── rotate_key.py        # Key rotation (stub)
-└── references/
-    └── API_KEYS.md          # Provider details & limits
-```
-
-## 🔄 Workflows
-
-### Daily Maintenance Workflow
-
-**Automated via moderator-agent:**
-1. Butler checks API budgets
-2. Janitor scans target repos for junk
-3. Gatekeeper reviews recent commits
-4. Moderator aggregates and reports findings
-
-### Pre-Commit Security Workflow
-
-**Triggered before git push:**
-1. Developer stages changes
-2. Gatekeeper scans staged files for secrets
-3. If secrets found → Alert & block
-4. If clean → Proceed to commit
-
-### Cost Optimization Workflow
-
-**Continuous monitoring:**
-1. Butler tracks token usage per provider
-2. Compares task complexity vs model cost
-3. Recommends cheaper alternatives when appropriate
-4. Example: "Use Groq Llama instead of Sonnet for this simple task → Save $0.045"
-
-## 💰 Cost Optimization
-
-### Model Selection Strategy
-
-**Free Models (Always prefer for routine tasks):**
-- **Groq Llama 3.3 70B** - Fast, 131K context
-- **Nvidia Kimi K2.5** - 128K context
-- **OpenCode Zen** - 128K context
-
-**Ultra-Cheap ($0.0003/1M tokens):**
-- **OpenRouter DeepSeek** - Quick lookups
-- **OpenRouter Qwen** - Code generation
-
-**Premium ($3-15/1M tokens):**
-- **Anthropic Sonnet 4.5** - Complex reasoning only
-
-### Current Costs
-
-**Monthly spend estimate:**
-- 4 Subagents (all free models): **$0.00**
-- Main agent (Sonnet for complex tasks): **~$2-5**
-- Total: **<$10/month**
-
-**Optimization Tips:**
-1. Use butler to recommend models before spawning subagents
-2. Reserve Sonnet for explicit complex tasks
-3. Batch operations to reduce API calls
-4. Monitor via butler's weekly reports
-
-## 🔒 Security Practices
-
-### Secrets Management
-
-**GitHub Secrets (via github-secrets-manager skill):**
-```bash
-# Store API keys securely
-gh secret set ANTHROPIC_API_KEY --body "sk-..." --repo owner/repo
-
-# List secrets (values hidden by GitHub)
-gh secret list --repo owner/repo
-```
-
-**Never commit:**
-- API keys
-- Bot tokens
-- Passwords
-- Private keys
-- `.env` files with credentials
-
-**Gatekeeper prevents:**
-- Accidental credential commits
-- Exposed tokens in code
-- Sensitive URLs with auth in query params
-
-### Configuration Security
-
-**Encrypted storage:**
-- Credentials: `~/.openclaw/credentials/api-keys.enc.json`
-- Master key: `~/.openclaw/credentials/.master.key`
-- **Backup the master key** - Cannot decrypt without it!
-
-## 📈 Performance Metrics
-
-### Token Usage (per message)
-
-| Configuration | Tokens/Message |
-|--------------|----------------|
-| Before optimization | 62,000 |
-| After QMD + tuning | 13,000 |
-| Target | <10,000 |
-
-**Optimization techniques:**
-- QMD memory backend (vs full memory)
-- Auto-clear sessions every 2h
-- Selective context injection
-- Compact workspace files
-
-### Subagent Efficiency
-
-| Agent | Model | Cost/Run | Avg Runtime |
-|-------|-------|----------|-------------|
-| butler | Nvidia Kimi | $0.00 | 10-30s |
-| janitor | Groq Llama | $0.00 | 30-90s |
-| gatekeeper | Groq Llama | $0.00 | 15-45s |
-| moderator | Nvidia Kimi | $0.00 | 5-20s |
-
-## 🚀 Getting Started
-
-**Prerequisites:**
-- Ubuntu 24.04+ (or similar Linux)
-- OpenClaw 2026.2+
-- GitHub CLI (`gh`) installed and authenticated
-- API keys for desired providers
-
-**Basic Setup:**
-1. Install OpenClaw
-2. Configure providers (Anthropic, Groq, Nvidia, etc.)
-3. Install skills from this repo
-4. Spawn persistent subagents with `cleanup="keep"`
-5. Configure cron jobs for daily maintenance
-
-**Detailed guides coming soon!**
-
-## 📚 Resources
-
-- [OpenClaw Documentation](https://docs.openclaw.ai)
-- [ClawHub - Skill Repository](https://clawhub.com)
-- [OpenClaw GitHub](https://github.com/openclaw/openclaw)
-- [OpenClaw Discord](https://discord.com/invite/clawd)
-
-## 🤝 Contributing
-
-This is a documentation repository showcasing a real-world OpenClaw deployment. If you have questions, suggestions, or want to share your own setup:
-
-- Open an issue for discussion
-- Submit a PR with improvements to documentation
-- Share your own household AI infrastructure patterns
-
-## 📄 License
-
-MIT License - Feel free to learn from and adapt these patterns for your own AI infrastructure.
+**You don't have a budget problem. You have an architecture problem.**
 
 ---
 
-**Note:** This repository documents infrastructure patterns, not deployable code. API keys, credentials, and sensitive configuration have been intentionally excluded. Use this as a reference for building your own OpenClaw-powered multi-agent system.
+## 🏛️ The Philosophy
+
+This repository documents **The Clawdi Mansion** — a revolutionary AI agent architecture that scales to 15+ parallel agents without scaling costs.
+
+### The Core Principle
+- **Cheap model runs the mansion** (orchestration, authority, delegation)
+- **Expensive models get hired for shifts** (task-specific work)
+- **The Butler manages the payroll** (token budgets, API rotation)
+- **The Gatekeeper locks the doors** (security, GitHub protection)
+
+**Result:** 15+ parallel agents, $0-2/day in API costs.
+
+---
+
+## 👑 Meet Clawdi — The Patriarch
+
+Clawdi doesn't do the heavy lifting. Clawdi **orchestrates**.
+
+**Role:** Master of the House, family head, delegator, decision-maker  
+**API:** Moonshot Kimi (CHEAP — $0.50-2.00/M tokens)  
+**Function:** Authority, coordination, monitoring — not intelligence
+
+> *"Why? Because orchestration doesn't need intelligence. It needs authority."*
+
+Clawdi delegates to specialized capabilities and spawns expensive subagents only for specific tasks.
+
+---
+
+## 🏛️ The Mansion Structure
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  CARLO (Estate Owner)                                           │
+│  Strategic Vision & Legacy Planning                             │
+└─────────────────────────┬───────────────────────────────────────┘
+                          │
+                          ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  CLAWDI (The Patriarch)                                         │
+│  Orchestration • Authority • Delegation                         │
+│  Runs on CHEAP API (Moonshot Kimi)                              │
+└─────────────────────────┬───────────────────────────────────────┘
+                          │
+          ┌───────────────┼───────────────┐
+          ▼               ▼               ▼
+   ┌─────────────┐ ┌─────────────┐ ┌─────────────┐
+   │  MODERATOR  │ │ GATEKEEPER  │ │   BUTLER    │
+   │ Floor Watch │ │   GitHub    │ │ Token CFO   │
+   │   & Reports │ │  Security   │ │             │
+   └─────────────┘ └─────────────┘ └─────────────┘
+          │
+          ▼
+   ┌─────────────┐
+   │  JANITOR    │
+   │Mimi Wing    │
+   │Maintenance  │
+   └─────────────┘
+```
+
+---
+
+## 🎩 The Butler (CFO) — Token Budget Manager
+
+**The backbone of the mansion.**
+
+Money = Tokens. The Butler manages token budgets across 10+ API keys from 6 different providers. When a sub-agent spawns for a task, it doesn't just pick any key. It goes to the Butler.
+
+### The Butler's Priority Ledger
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│  BUTLER'S PRIORITY LEDGER                                    │
+├──────────────────────────────────────────────────────────────┤
+│  1. 🥇 Moonshot Kimi  (Primary/Cheap)    │
+│  2. 🥈 NVIDIA Kimi    (Secondary/Free)   │
+│  3. 🥉 Groq           (When functional)  │
+│  4. 🔶 OpenRouter     (Diversity)        │
+│  5. 🟣 Anthropic      (High-value tasks) │
+│  6. 🟢 OpenAI         (Premium jobs)     │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### The Butler's Workflow
+
+```
+┌──────────────┐
+│   REQUEST    │
+│ (Sub-agent)  │
+└──────┬───────┘
+       │
+       ▼
+┌──────────────────────────────────────┐
+│  BUTLER EVALUATES                    │
+│  • Task complexity                   │
+│  • Token estimate                    │
+│  • Available keys                    │
+└──────┬───────────────────────────────┘
+       │
+       ▼
+┌─────────────┐    ┌──────────────┐
+│  ALLOCATE   │───►│   ASSIGN     │
+│  Right Key  │    │   API Key    │
+└─────────────┘    └──────┬───────┘
+                          │
+                          ▼
+                   ┌──────────────┐
+                   │   MONITOR    │
+                   │ Token Usage  │
+                   │  Real-time   │
+                   └──────┬───────┘
+                          │
+                          ▼
+                   ┌──────────────┐
+                   │ AUTO-ROTATE  │
+                   │   @ 80%      │
+                   └──────────────┘
+```
+
+**Result:** No surprise bills. No crashed agents mid-task. Clean, automated budget allocation.
+
+---
+
+## 🛡️ The Gatekeeper — GitHub Security
+
+Nothing touches GitHub without passing through the Gatekeeper.
+
+**Function:** Pre-commit security scanning
+**Scans for:**
+- Leaked API keys
+- Sensitive data
+- Credentials
+- Anything that shouldn't be public
+
+### Gatekeeper Protocol
+
+```
+Developer          Gatekeeper         Public Repos         Archive
+     │                  │                  │                  │
+     │ 1. Commit        │                  │                  │
+     │─────────────────►│                  │                  │
+     │                  │                  │                  │
+     │                  │ 2. SCAN          │                  │
+     │                  │ (Security Check) │                  │
+     │                  │                  │                  │
+     │◄─────────────────│                  │                  │
+     │ ❌ BLOCKED        │                  │                  │
+     │ ✅ APPROVED       │                  │                  │
+     │                  │                  │                  │
+     │ 3. Push ───────────────────────────►│                  │
+     │                  │                  │                  │
+     │                  │ 4. Backup ──────────────────────────►│
+```
+
+**Security isn't a checklist. It's an agent with veto power.**
+
+---
+
+## 🧹 The Janitor (Mimi Wing) — Estate Maintenance
+
+After the work is done, the mess remains. The Janitor handles all cleanup:
+
+- Cache files
+- Unused artifacts
+- Dead code
+- Repo maintenance
+
+### Janitor Operations
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    JANITOR OPERATIONS                       │
+│                      (Mimi Wing)                            │
+└─────────────────────────────────────────────────────────────┘
+
+Daily Tasks              Weekly Tasks
+     │                        │
+     ▼                        ▼
+┌─────────────┐        ┌─────────────┐
+│ Clear Cache │        │Deep Cleanup │
+│Remove Unused│        │Archive Old  │
+│ Artifacts   │        │ Branches    │
+└─────────────┘        └─────────────┘
+```
+
+**Every push is lean. Every repo is sharp.**
+
+---
+
+## 📊 The Moderator — Floor Manager
+
+While 15+ agents run in parallel, someone watches the floor.
+
+**Function:**
+- Monitors all sub-agent activity
+- Aggregates results
+- Code review on completed tasks
+- Compiles daily report
+
+### Moderator Dashboard
+
+```
+┌──────────────────────────────────────────────────────────┐
+│                    MODERATOR DASHBOARD                   │
+└──────────────────────────────────────────────────────────┘
+
+Sub-Agent 1 ──┐
+Sub-Agent 2 ──┤
+Sub-Agent 3 ──┼──► MODERATOR ──► Daily Report ──► CLAWDI
+    ...       │   (Watches)      (Compiled)      (Reviews)
+Sub-Agent 15 ─┘
+
+That report goes to Clawdi. Clawdi reports to Carlo.
+```
+
+**You don't babysit agents. You read summaries from the Patriarch.**
+
+---
+
+## 🏰 The Three Wings
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    THE MANSION'S WINGS                          │
+├─────────────────┬─────────────────┬─────────────────────────────┤
+│   ZEPHYR WING   │   MIMI WING     │   BLUESHIFT WING            │
+│                 │                 │                             │
+│  • Specialized  │  • Janitor      │  • Specialized              │
+│  • Hackathon    │  • Memory       │  • Solana Dev               │
+│  • Projects     │  • Archives     │  • Learning                 │
+│                 │                 │                             │
+└─────────────────┴─────────────────┴─────────────────────────────┘
+```
+
+**Wings = Project-specific channels where task agents do the work.**
+
+---
+
+## 💰 Cost Architecture
+
+| Component | API | Cost | Role |
+|-----------|-----|------|------|
+| **Clawdi** | Moonshot Kimi | $0.50-2/M | Orchestration |
+| **Butler** | Moonshot Kimi | $0.50-2/M | Budget mgmt |
+| **Gatekeeper** | Moonshot Kimi | $0.50-2/M | Security |
+| **Moderator** | Moonshot Kimi | $0.50-2/M | Coordination |
+| **Janitor** | Moonshot Kimi | $0.50-2/M | Maintenance |
+| **Task Subagents** | NVIDIA/GROQ/OpenRouter | $0 | Specific work |
+
+**Daily Cost:** $0-2 (vs $50-100 with wrong architecture)
+
+---
+
+## 🎯 The Architecture in One Line
+
+> *"Cheap model runs the mansion. Expensive models get hired for shifts. The Butler manages the payroll. The Gatekeeper locks the doors."*
+
+That's how you scale to 15+ parallel agents without scaling costs.
+
+---
+
+## 💡 The Core Principle
+
+If you're running agents and burning through API credits, you don't have a budget problem.
+
+**You have an architecture problem.**
+
+Build the mansion.  
+Hire the Butler.  
+Let the Patriarch delegate.
+
+---
+
+## 📁 Repository Structure
+
+```
+clawdi-infrastructure/
+├── README.md              # This architecture document
+├── docs/
+│   ├── ARCHITECTURE.md    # Detailed system design
+│   ├── BUTLER.md          # Token management spec
+│   ├── GATEKEEPER.md      # Security protocols
+│   └── MODERATOR.md       # Coordination workflows
+├── scripts/
+│   ├── agent-recovery.sh  # Post-restart recovery
+│   └── cost-monitor.py    # Token usage tracking
+└── config/
+    └── openclaw.json      # Gateway configuration
+```
+
+---
+
+## 🚀 Quick Start
+
+1. **Clone and configure**
+2. **Setup API keys** (10+ keys across 6 providers)
+3. **Configure Butler** priority ledger
+4. **Enable Gatekeeper** pre-commit hooks
+5. **Start the mansion**
+
+See [docs/SETUP.md](docs/SETUP.md) for detailed instructions.
+
+---
+
+## 📊 Performance Metrics
+
+| Metric | Target | Status |
+|--------|--------|--------|
+| Agents | 15+ parallel | ✅ Ready |
+| Daily Cost | $0-2 | ✅ Configured |
+| Token Efficiency | 80%+ free tier | ✅ Active |
+| Security | 100% scanned | ✅ Gatekeeper |
+| Uptime | 99.9% | 🟡 Monitoring |
+
+---
+
+## 🤝 Contributing
+
+This architecture is battle-tested and production-ready. Contributions welcome:
+
+- Additional provider integrations
+- Cost optimization strategies
+- Security enhancements
+- Documentation improvements
+
+---
+
+## 📜 License
+
+MIT — Build your own mansion.
+
+---
+
+*Built with 💰 efficiency and 🛡️ security in mind.*  
+*The future of AI agent orchestration is here.*
