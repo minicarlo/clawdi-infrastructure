@@ -38,7 +38,7 @@ Clawdi delegates to specialized capabilities and spawns expensive subagents only
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  CARLO (Estate Owner)                                           │
+│  CASE (Estate Owner)                                           │
 │  Strategic Vision & Legacy Planning                             │
 └─────────────────────────┬───────────────────────────────────────┘
                           │
